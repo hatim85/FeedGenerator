@@ -18,10 +18,10 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    
+
     const { address } = useAccount();
     const { writeContractAsync } = useWriteContract();
-    
+
     const { data: feedsData, refetch } = useReadContract({
         address: CONTRACT_ADDRESS,
         abi: FeedRegistryABI,
@@ -29,7 +29,7 @@ function App() {
         args: [address],
         enabled: !!address,
     });
-    
+
     // Update feeds when data changes
     useEffect(() => {
         if (feedsData) {
@@ -50,39 +50,262 @@ function App() {
         }
     };
 
+    // const uploadToAkave = async (content, description) => {
+    //     const bucketName = `feed-${address.slice(0, 8)}`;
+    //     try {
+    //         await axios.post(`${AKAVE_API_BASE_URL}/buckets`, { bucketName: bucketName })
+    //             .catch(error => {
+    //                 if (!error.response?.data?.error?.includes('already exists')) throw error;
+    //             });
+
+    //         const form = new FormData();
+    //         form.append('file', new Blob([content], { type: 'text/plain' }), `feed-${Date.now()}.txt`);
+    //         form.append('description', description || 'Generated feed content');
+
+    //         const response = await axios.post(
+    //             `${AKAVE_API_BASE_URL}/buckets/${bucketName}/files`, 
+    //             form, 
+    //             { headers: form.getHeaders ? form.getHeaders() : {} }
+    //         );
+
+    //         return response.data.cid;
+    //     } catch (error) {
+    //         console.error('Error uploading to Akave:', error);
+    //         throw new Error(error.response?.data?.error || error.message);
+    //     }
+    // };
+
+    // const uploadToAkave = async (content, description) => {
+    //     console.log('Starting uploadToAkave:', {
+    //         contentLength: content?.length,
+    //         description: description || 'No description provided',
+    //         address: address || 'No address provided',
+    //     });
+
+    //     if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    //         console.error('Invalid wallet address:', address);
+    //         throw new Error('Invalid wallet address');
+    //     }
+
+    //     if (!content) {
+    //         console.error('No content provided for upload');
+    //         throw new Error('Content is required');
+    //     }
+
+    //     const bucketName = `feed${address.slice(0, 8)}`;
+    //     console.log('Computed bucketName:', bucketName);
+
+    //     try {
+    //         console.log('Attempting to create bucket:', {
+    //             url: `${AKAVE_API_BASE_URL}/buckets`,
+    //             payload: { bucketName },
+    //         });
+
+    //         const bucketResponse = await axios.post(`${AKAVE_API_BASE_URL}/buckets`, { bucketName })
+    //             .catch(error => {
+    //                 console.error('Bucket creation error:', {
+    //                     status: error.response?.status,
+    //                     errorMessage: error.response?.data?.error,
+    //                     fullError: error.message,
+    //                 });
+    //                 if (
+    //                     error.response?.status === 409 ||
+    //                     error.response?.data?.error?.toLowerCase().includes('already exists')
+    //                 ) {
+    //                     console.log('Bucket already exists, proceeding with file upload');
+    //                     return;
+    //                 }
+    //                 throw error;
+    //             });
+
+    //         console.log('Bucket creation response:', bucketResponse?.data || 'No response (bucket already exists)');
+
+    //         console.log('Preparing file upload:', {
+    //             bucketName,
+    //             fileName: `feed-${Date.now()}.txt`,
+    //             description: description || 'Generated feed content',
+    //         });
+
+    //         const form = new FormData();
+    //         form.append('file', new Blob([content], { type: 'text/plain' }), `feed-${Date.now()}.txt`);
+    //         form.append('description', description || 'Generated feed content');
+
+    //         console.log('FormData prepared for upload:', {
+    //             url: `${AKAVE_API_BASE_URL}/buckets/${bucketName}/files`,
+    //         });
+
+    //         const response = await axios.post(`${AKAVE_API_BASE_URL}/buckets/${bucketName}/files`, form);
+
+    //         console.log('File upload response:', {
+    //             status: response.status,
+    //             data: response.data,
+    //             cid: response.data.cid,
+    //         });
+
+    //         const cid = response.data?.data?.RootCID;
+    //         if (!cid) {
+    //             console.error('No CID returned in response');
+    //             throw new Error('Invalid response: CID not found');
+    //         }
+    //         return cid;
+
+
+    //         // return response.data.data.RootCid;
+    //     } catch (error) {
+    //         console.error('Error in uploadToAkave:', {
+    //             errorMessage: error.message,
+    //             responseStatus: error.response?.status,
+    //             responseData: error.response?.data,
+    //             responseError: error.response?.data?.error,
+    //             stack: error.stack,
+    //         });
+
+    //         const errorMessage =
+    //             error.response?.status === 500
+    //                 ? 'Server error: Failed to process bucket creation. Check server logs or contact support.'
+    //                 : error.response?.data?.error || error.message;
+    //         throw new Error(errorMessage);
+    //     }
+    // };
+
     const uploadToAkave = async (content, description) => {
-        const bucketName = `feed-${address.slice(0, 8)}`;
+        console.log('Starting uploadToAkave:', {
+            contentLength: content?.length,
+            description: description || 'No description provided',
+            address: address || 'No address provided',
+        });
+    
+        if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+            console.error('Invalid wallet address:', address);
+            throw new Error('Invalid wallet address');
+        }
+    
+        if (!content) {
+            console.error('No content provided for upload');
+            throw new Error('Content is required');
+        }
+    
+        // Ensure content meets minimum size requirement (127 bytes)
+        if (content.length < 127) {
+            console.error('Content too small:', content.length);
+            throw new Error('Content must be at least 127 bytes');
+        }
+    
+        const bucketName = `feed${address.slice(0, 8)}`;
+        console.log('Computed bucketName:', bucketName);
+    
         try {
-            await axios.post(`${AKAVE_API_BASE_URL}/buckets`, { bucketName })
-                .catch(error => {
-                    if (!error.response?.data?.error?.includes('already exists')) throw error;
+            // Step 1: Check if the bucket exists
+            console.log('Checking for existing buckets:', {
+                url: `${AKAVE_API_BASE_URL}/buckets`,
+            });
+    
+            const listBucketsResponse = await axios.get(`${AKAVE_API_BASE_URL}/buckets`);
+            console.log('List buckets response:', {
+                status: listBucketsResponse.status,
+                data: listBucketsResponse.data,
+            });
+    
+            // Extract buckets from response
+            const buckets = listBucketsResponse.data?.data || [];
+            const bucketExists = buckets.some((bucket) => bucket.Name === bucketName);
+    
+            // Step 2: Create bucket if it doesn't exist
+            if (!bucketExists) {
+                console.log('Bucket does not exist, creating bucket:', {
+                    url: `${AKAVE_API_BASE_URL}/buckets`,
+                    payload: { bucketName },
                 });
-                
+    
+                try {
+                    const bucketResponse = await axios.post(`${AKAVE_API_BASE_URL}/buckets`, {
+                        bucketName,
+                    });
+                    console.log('Bucket creation response:', {
+                        status: bucketResponse.status,
+                        data: bucketResponse.data,
+                    });
+                } catch (bucketError) {
+                    console.error('Bucket creation failed:', {
+                        status: bucketError.response?.status,
+                        error: bucketError.response?.data?.error,
+                        message: bucketError.message,
+                    });
+                    if (
+                        bucketError.response?.status === 409 ||
+                        bucketError.response?.data?.error?.toLowerCase().includes('already exists')
+                    ) {
+                        console.log('Bucket already exists (confirmed by error), proceeding with file upload');
+                    } else {
+                        throw bucketError;
+                    }
+                }
+            } else {
+                console.log(`Bucket '${bucketName}' already exists, proceeding with file upload`);
+            }
+    
+            // Step 3: Upload the file
+            console.log('Preparing file upload:', {
+                bucketName,
+                fileName: `feed-${Date.now()}.txt`,
+                description: description || 'Generated feed content',
+            });
+    
+            // Use browser's native FormData
             const form = new FormData();
             form.append('file', new Blob([content], { type: 'text/plain' }), `feed-${Date.now()}.txt`);
             form.append('description', description || 'Generated feed content');
-            
-            const response = await axios.post(
-                `${AKAVE_API_BASE_URL}/buckets/${bucketName}/files`, 
-                form, 
-                { headers: form.getHeaders ? form.getHeaders() : {} }
+    
+            console.log('FormData prepared for upload:', {
+                url: `${AKAVE_API_BASE_URL}/buckets/${bucketName}/files`,
+            });
+    
+            const uploadResponse = await axios.post(
+                `${AKAVE_API_BASE_URL}/buckets/${bucketName}/files`,
+                form
+                // No headers needed; axios handles multipart/form-data automatically
             );
-            
-            return response.data.cid;
+    
+            console.log('File upload response:', {
+                status: uploadResponse.status,
+                data: uploadResponse.data,
+            });
+    
+            // Extract CID from response
+            const cid = uploadResponse.data?.data?.RootCID;
+            if (!cid) {
+                console.error('No CID returned in response:', uploadResponse.data);
+                throw new Error('Invalid response: CID not found');
+            }
+    
+            console.log('File uploaded successfully, CID:', cid);
+            return cid;
+    
         } catch (error) {
-            console.error('Error uploading to Akave:', error);
-            throw new Error(error.response?.data?.error || error.message);
+            console.error('Error in uploadToAkave:', {
+                errorMessage: error.message,
+                responseStatus: error.response?.status,
+                responseData: error.response?.data,
+                responseError: error.response?.data?.error,
+                stack: error.stack,
+            });
+    
+            const errorMessage =
+                error.response?.status === 500
+                    ? 'Server error: Failed to process request. Check server logs or contact support.'
+                    : error.response?.data?.error || error.message;
+            throw new Error(errorMessage);
         }
     };
 
     const handleCreateFeed = async (e) => {
         e.preventDefault();
-        
+
         if (!address) {
             setError('Please connect your wallet first!');
             return;
         }
-        
+
         if (!image) {
             setError('Please upload an image!');
             return;
@@ -91,7 +314,7 @@ function App() {
         setLoading(true);
         setError('');
         setSuccess('');
-        
+
         try {
             const formData = new FormData();
             formData.append('image', image);
@@ -103,14 +326,14 @@ function App() {
             });
 
             if (!response.data.success) throw new Error(response.data.error);
-            
+
             // Get generated content
             const content = response.data.content;
             console.log('Generated content:', content);
-            
+
             // Upload to Akave storage
             const cid = await uploadToAkave(content, prompt || 'Generated feed');
-            
+
             // Create feed on blockchain using writeContractAsync
             const transaction = await writeContractAsync({
                 address: CONTRACT_ADDRESS,
@@ -118,18 +341,18 @@ function App() {
                 functionName: 'createFeed',
                 args: [cid]
             });
-            
+
             console.log('Transaction submitted:', transaction);
-            
+
             // Reset form
             setPrompt('');
             setImage(null);
             setImagePreview(null);
             setSuccess('Feed created successfully!');
-            
+
             // Refresh feeds
             refetch();
-            
+
         } catch (error) {
             console.error('Error creating feed:', error);
             setError(`Failed to create feed: ${error.message}`);
@@ -148,10 +371,10 @@ function App() {
                 functionName: 'deleteFeed',
                 args: [feedId]
             });
-            
+
             console.log('Delete transaction submitted:', transaction);
             setSuccess('Feed deleted successfully!');
-            
+
             // Refresh feeds after a short delay to allow transaction confirmation
             setTimeout(() => refetch(), 2000);
         } catch (error) {
@@ -166,7 +389,7 @@ function App() {
     const formatDate = (timestamp) => {
         return new Date(Number(timestamp) * 1000).toLocaleString();
     };
-    
+
     // Clear notifications after 5 seconds
     useEffect(() => {
         if (error || success) {
@@ -208,7 +431,7 @@ function App() {
                                 disabled={loading}
                             />
                         </div>
-                        
+
                         <div className="form-group file-input-group">
                             <label htmlFor="image-upload">
                                 Upload Image
@@ -229,9 +452,9 @@ function App() {
                                 </div>
                             )}
                         </div>
-                        
-                        <button 
-                            type="submit" 
+
+                        <button
+                            type="submit"
                             className="create-button"
                             disabled={loading}
                         >
@@ -247,8 +470,8 @@ function App() {
                     ) : feeds && feeds.length > 0 ? (
                         <div className="feeds-list">
                             {feeds.map((feed, index) => (
-                                <div 
-                                    key={index} 
+                                <div
+                                    key={index}
                                     className={`feed-card ${feed.isDeleted ? 'deleted' : ''}`}
                                 >
                                     <div className="feed-content">
@@ -286,7 +509,7 @@ function App() {
                     )}
                 </section>
             </main>
-            
+
             <footer>
                 <p>&copy; {new Date().getFullYear()} Feed Registry | Powered by IPFS & Filecoin</p>
             </footer>
